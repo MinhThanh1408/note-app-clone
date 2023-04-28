@@ -1,10 +1,9 @@
-import { useEffect } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { useEffect } from 'react';
+import { Outlet, Navigate } from 'react-router-dom';
 function ProtectedRoute({ chidlren }) {
-  const navigate = useNavigate();
   useEffect(() => {
-    if (!localStorage.getItem("accessToken")) {
-      navigate("/login");
+    if (!localStorage.getItem('accessToken')) {
+      return <Navigate to='/login' />;
     }
   });
 

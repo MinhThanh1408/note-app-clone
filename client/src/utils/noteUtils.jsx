@@ -1,53 +1,77 @@
+import { graphQLRequest } from './request';
+
 export const notesLoader = async ({ params: { folderId } }) => {
-  const query = `query Folders($folderId: String) {
+  const query = `query Folders($folderId: String!) {
                     folder(folderId: $folderId) {
                       id
                       name
                       notes {
-                        content
                         id
+                        content
+                        updatedAt
                       }
                     }
                   }`;
-  const response = await fetch('http://localhost:4000/graphql', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
+  const folder = await graphQLRequest({
+    query,
+    variables: {
+      folderId,
     },
-    body: JSON.stringify({
-      query,
-      variables: {
-        folderId,
-      },
-    }),
   });
-  const {data} = await response.json();
-  console.log('Data is folder', data);
-  return data;
+  console.log('here',folder);
+  return folder;
 };
 
-export const noteLoader = async ({ params: {noteId} }) => {
-  const query = `query Note($noteId: String) {
+export const noteLoader = async ({ params: { noteId } }) => {
+  const query = `query Note($noteId: String!) {
     note(noteId: $noteId) {
       id
       content
     }
   }`;
-  const response = await fetch('http://localhost:4000/graphql', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
+  const note = await graphQLRequest({
+    query,
+    variables: {
+      noteId,
     },
-    body: JSON.stringify({
-      query,
-      variables: {
-        noteId
-      },
-    }),
   });
-  const {data} = await response.json();
-  console.log('Data is note', data);
-  return data;
+  console.log('Data is note', note);
+  return note;
+};
+
+export const addNewNote = async ({ params, request }) => {
+  const newNote = await request.formData();
+  const formDataObject = {};
+  newNote.forEach((value, key) => (formDataObject[key] = value));
+  console.log({ newNote, formDataObject });
+  const query = `mutation Mutation($content: String!, $folderId: ID!){
+    addNote(content: $content, folderId: $folderId){
+      id
+      content
+    }
+  }`;
+  const { addNote } = await graphQLRequest({
+    query,
+    variables: formDataObject,
+  });
+  console.log({ addNote });
+  return addNote;
+};
+
+export const updateNote = async ({ params, request }) => {
+  const updatedNote = await request.formData();
+  const formDataObject = {};
+  updatedNote.forEach((value, key) => (formDataObject[key] = value));
+  console.log({ updatedNote, formDataObject });
+  const query = `mutation Mutation($id: String!, $content: String!){
+    updateNote(id: $id, content: $content){
+      id
+      content
+    }
+  }`;
+  const { updateNote } = await graphQLRequest({
+    query,
+    variables: formDataObject,
+  });
+  return updateNote;
 };

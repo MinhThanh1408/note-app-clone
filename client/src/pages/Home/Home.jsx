@@ -18,9 +18,14 @@ function Home() {
         container
         sx={{ height: '50vh', boxShadow: '0 0 15px 0 rgb(193 193 193 / 60%)' }}
       >
-        <Grid item xs={3} sx={{ height: '100%' }}>
+        <Grid
+          item
+          xs={3}
+          sx={{ height: '100%', display: 'flex', overflow: 'hidden' }}
+        >
           <FolderList folders={folders} />
         </Grid>
+
         <Grid item xs={9} sx={{ height: '100%' }}>
           <Outlet />
         </Grid>

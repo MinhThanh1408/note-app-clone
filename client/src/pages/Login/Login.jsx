@@ -1,34 +1,45 @@
-import { Button, Typography } from "@mui/material";
-import { GoogleAuthProvider, signInWithPopup, getAuth } from "firebase/auth";
-import { useContext, useEffect } from "react";
-import { AuthContext } from "../../context/AuthProvider";
-import { useNavigate } from "react-router-dom";
+import { Button, Typography } from '@mui/material';
+import { GoogleAuthProvider, signInWithPopup, getAuth } from 'firebase/auth';
+import { useContext } from 'react';
+import { AuthContext } from '../../context/AuthProvider';
+import { Navigate } from 'react-router-dom';
+import { graphQLRequest } from '../../utils/request';
 
 function Login() {
   const auth = getAuth();
-
-  const navigate = useNavigate();
 
   const { user } = useContext(AuthContext);
 
   const handleLoginWithGoogle = async () => {
     const googleProvider = new GoogleAuthProvider();
+    console.log('sign in with Google');
+    const {
+      user: { uid, displayName },
+    } = await signInWithPopup(auth, googleProvider);
 
-    await signInWithPopup(auth, googleProvider);
+    const { data } = await graphQLRequest({
+      query: `mutation register($uid: String!, $name: String!){
+      register(uid: $uid, name: $name){
+        uid
+        name
+      }
+    }`,
+      variables: {
+        uid,
+        name: displayName,
+      },
+    });
+    console.log('register', { data });
   };
 
-  useEffect(() => {
-    if (user?.uid) {
-      console.log("Login exist");
-      navigate("/");
-      return;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  });
+  if (localStorage.getItem('accessToken')) {
+    console.log('Login exist');
+    return <Navigate to='/' />;
+  }
 
   return (
     <div>
-      <Typography variant='h5' sx={{ mb: "20px" }}>
+      <Typography variant='h5' sx={{ mb: '20px' }}>
         Welcome to Note App
       </Typography>
       <Button variant='outlined' onClick={handleLoginWithGoogle}>

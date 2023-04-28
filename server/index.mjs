@@ -5,67 +5,20 @@ import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHt
 import bodyParser from 'body-parser';
 import { expressMiddleware } from '@apollo/server/express4';
 import cors from 'cors';
+import mongoose from 'mongoose';
 import fakeData from './fakeData.js';
+import 'dotenv/config';
+import { resolvers } from './resolvers/index.js';
+import { typeDefs } from './schemas/index.js';
+import './firebaseConfig.js';
+import { getAuth } from 'firebase-admin/auth';
 
 const app = express();
 const httpServer = http.createServer(app);
 
-const typeDefs = `#graphql
-  type Folder {
-    id: String,
-    name: String,
-    createdAt: String,
-    author: Author,
-    notes: [Note],
-  }
-
-  type Note {
-    id: String,
-    content: String,
-  }
-
-  type Author {
-    id: String,
-    name: String,
-  }
-
-  type Query {
-    folders: [Folder],
-    folder(folderId: String): Folder,
-    authors: [Author],
-    note(noteId: String): Note,
-  }
-`;
-const resolvers = {
-  Query: {
-    folders: () => {
-      return fakeData.folders;
-    },
-
-    folder: (parent, argruments) => {
-      const folderId = argruments.folderId;
-      return fakeData.folders.find((folder) => folder.id === folderId);
-    },
-    authors: () => {
-      return fakeData.authors;
-    },
-    note: (parent, argruments)=>{
-      const noteId = argruments.noteId;
-      return fakeData.notes.find((note) => note.id === noteId);
-    }
-  },
-  Folder: {
-    notes: (parent, argruments) => {
-      const folderId = parent.id;
-      return fakeData.notes.filter((note) => note.folderId === folderId);
-    },
-    author: (parent, argruments) => {
-      const authorId = parent.authorId;
-      return fakeData.authors.find((author) => author.id === authorId);
-    },
-  },
-};
-
+// Connect to DB
+const URL = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@alien.3qo6hj1.mongodb.net/test`;
+const PORT = process.env.PORT || 4000;
 const server = new ApolloServer({
   typeDefs,
   resolvers,
@@ -74,9 +27,54 @@ const server = new ApolloServer({
 
 await server.start();
 
-app.use(cors(), bodyParser.json(), expressMiddleware(server));
+const authorizationJWT = async (req, res, next) => {
+  console.log({ authorization: req.headers.authorization });
+  const authorizationHeader = req.headers.authorization;
+  if (authorizationHeader) {
+    const accessToken = authorizationHeader.split(' ')[1];
 
-await new Promise((resolve, reject) =>
-  httpServer.listen({ port: 4000 }, resolve)
+    getAuth()
+      .verifyIdToken(accessToken)
+      .then((decodedToken) => {
+        console.log(decodedToken);
+        res.locals.uid = decodedToken.uid;
+        next();
+      })
+      .catch((error) => {
+        console.log(error);
+        return res
+          .status(403)
+          .json({ message: 'Forbidden', error: error });
+      });
+  } else {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+};
+
+app.use(
+  cors(),
+  authorizationJWT,
+  bodyParser.json(),
+  expressMiddleware(server, {
+    context: async ({ req, res }) => {
+      return { uid: res.locals.uid };
+    },
+  })
 );
-console.log('Server ready at http://localhost:4000');
+
+mongoose.set('strictQuery', false);
+mongoose
+  .connect(URL, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(async () => {
+    console.log('Connected to DB');
+    await new Promise((resolve, reject) =>
+      httpServer.listen({ port: PORT }, resolve)
+    );
+    console.log(`Server ready at http://localhost:${PORT}`);
+  })
+  .catch((err) => {
+    console.log('Cant connect to DB', err);
+  });
